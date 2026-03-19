@@ -1335,44 +1335,66 @@ elif menu == "可视化仪表盘":
     st.markdown("---")
     st.markdown("#### 💡 快速生成演示")
     
+    # 初始化会话状态用于演示
+    if "demo_charts" not in st.session_state:
+        st.session_state.demo_charts = {}
+    
     # 快速演示按钮（3列布局）
     demo_col1, demo_col2, demo_col3 = st.columns(3)
     
     with demo_col1:
-        if st.button("📈 任务趋势分析", use_container_width=True):
-            df = pd.read_sql("SELECT * FROM production_tasks", conn)
-            if not df.empty:
-                with st.spinner("生成中..."):
-                    fig, msg = ai_generate_visualization(df, "生产任务", "趋势分析")
-                if fig:
-                    st.plotly_chart(fig, use_container_width=True, key=f"demo_task_trend_{time.time()}")
-                st.caption(msg)
-            else:
-                st.warning("暂无数据")
+        if st.button("📈 任务趋势分析", use_container_width=True, key="demo_task_trend_btn"):
+            try:
+                df = pd.read_sql("SELECT * FROM production_tasks", conn)
+                if not df.empty:
+                    with st.spinner("🤖 AI正在生成任务趋势分析..."):
+                        fig, msg = ai_generate_visualization(df, "生产任务", "趋势分析")
+                    if fig:
+                        st.success("✅ 图表生成成功")
+                        st.plotly_chart(fig, use_container_width=True, key="demo_task_trend_chart")
+                    else:
+                        st.error("❌ 图表生成失败")
+                    st.caption(msg)
+                else:
+                    st.warning("📊 暂无生产任务数据，请先导入数据")
+            except Exception as e:
+                st.error(f"❌ 错误: {str(e)}")
     
     with demo_col2:
-        if st.button("⚙️ 设备对比分析", use_container_width=True):
-            df = pd.read_sql("SELECT * FROM equipment_info", conn)
-            if not df.empty:
-                with st.spinner("生成中..."):
-                    fig, msg = ai_generate_visualization(df, "设备", "对比分析")
-                if fig:
-                    st.plotly_chart(fig, use_container_width=True, key=f"demo_equip_compare_{time.time()}")
-                st.caption(msg)
-            else:
-                st.warning("暂无数据")
+        if st.button("⚙️ 设备对比分析", use_container_width=True, key="demo_equip_compare_btn"):
+            try:
+                df = pd.read_sql("SELECT * FROM equipment_info", conn)
+                if not df.empty:
+                    with st.spinner("🤖 AI正在生成设备对比分析..."):
+                        fig, msg = ai_generate_visualization(df, "设备", "对比分析")
+                    if fig:
+                        st.success("✅ 图表生成成功")
+                        st.plotly_chart(fig, use_container_width=True, key="demo_equip_compare_chart")
+                    else:
+                        st.error("❌ 图表生成失败")
+                    st.caption(msg)
+                else:
+                    st.warning("📊 暂无设备数据，请先导入数据")
+            except Exception as e:
+                st.error(f"❌ 错误: {str(e)}")
     
     with demo_col3:
-        if st.button("📦 物料分布分析", use_container_width=True):
-            df = pd.read_sql("SELECT * FROM material_info", conn)
-            if not df.empty:
-                with st.spinner("生成中..."):
-                    fig, msg = ai_generate_visualization(df, "物料", "分布分析")
-                if fig:
-                    st.plotly_chart(fig, use_container_width=True, key=f"demo_material_dist_{time.time()}")
-                st.caption(msg)
-            else:
-                st.warning("暂无数据")
+        if st.button("📦 物料分布分析", use_container_width=True, key="demo_material_dist_btn"):
+            try:
+                df = pd.read_sql("SELECT * FROM material_info", conn)
+                if not df.empty:
+                    with st.spinner("🤖 AI正在生成物料分布分析..."):
+                        fig, msg = ai_generate_visualization(df, "物料", "分布分析")
+                    if fig:
+                        st.success("✅ 图表生成成功")
+                        st.plotly_chart(fig, use_container_width=True, key="demo_material_dist_chart")
+                    else:
+                        st.error("❌ 图表生成失败")
+                    st.caption(msg)
+                else:
+                    st.warning("📊 暂无物料数据，请先导入数据")
+            except Exception as e:
+                st.error(f"❌ 错误: {str(e)}")
 
 # -------------------------- 智能问答页面（新增紧急订单插入，支持手动添加物料）--------------------------
 elif menu == "智能问答":
