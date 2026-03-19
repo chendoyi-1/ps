@@ -504,65 +504,69 @@ def create_default_chart(df, data_type, chart_type='auto'):
     if df.empty:
         return None
     
-    if chart_type == 'auto':
-        if data_type == "生产任务" and 'task_status' in df.columns:
-            status_counts = df['task_status'].value_counts().reset_index()
-            status_counts.columns = ['状态', '数量']
-            fig = px.pie(status_counts, values='数量', names='状态', title='生产任务状态分布')
-            return fig
-        elif data_type == "设备" and 'equip_name' in df.columns and 'capacity_daily' in df.columns:
-            fig = px.bar(df, x='equip_name', y='capacity_daily', 
-                         color='equip_type' if 'equip_type' in df.columns else None,
-                         title='设备日产能分布', text_auto=True,
-                         labels={'equip_name': '设备名称', 'capacity_daily': '日产能', 'equip_type': '设备类型'})
-            fig.update_layout(xaxis_tickangle=-45)
-            return fig
-        elif data_type == "物料" and 'material_name' in df.columns and 'stock_quantity' in df.columns:
-            top10 = df.nlargest(10, 'stock_quantity')
-            fig = px.bar(top10, x='material_name', y='stock_quantity', 
-                         color='supplier' if 'supplier' in df.columns else None,
-                         title='物料库存 Top 10', text_auto=True,
-                         labels={'material_name': '物料名称', 'stock_quantity': '库存数量', 'supplier': '供应商'})
-            fig.update_layout(xaxis_tickangle=-45)
-            return fig
-        else:
-            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-            if numeric_cols and len(df.columns) > 0:
-                x_col = df.columns[0]
-                y_col = numeric_cols[0]
-                fig = px.bar(df, x=x_col, y=y_col, title=f'{data_type}数据概览',
-                             labels={x_col: format_col_name(x_col), y_col: format_col_name(y_col)})
+    try:
+        if chart_type == 'auto':
+            if data_type == "生产任务" and 'task_status' in df.columns:
+                status_counts = df['task_status'].value_counts().reset_index()
+                status_counts.columns = ['状态', '数量']
+                fig = px.pie(status_counts, values='数量', names='状态', title='生产任务状态分布')
                 return fig
-    else:
-        if chart_type == '柱状图':
-            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-            if numeric_cols:
-                x_col = df.columns[0]
-                y_col = numeric_cols[0]
-                fig = px.bar(df, x=x_col, y=y_col, title=f'{data_type}柱状图', text_auto=True,
-                             labels={x_col: format_col_name(x_col), y_col: format_col_name(y_col)})
+            elif data_type == "设备" and 'equip_name' in df.columns and 'capacity_daily' in df.columns:
+                fig = px.bar(df, x='equip_name', y='capacity_daily', 
+                             color='equip_type' if 'equip_type' in df.columns else None,
+                             title='设备日产能分布', text_auto=True,
+                             labels={'equip_name': '设备名称', 'capacity_daily': '日产能', 'equip_type': '设备类型'})
+                fig.update_layout(xaxis_tickangle=-45)
                 return fig
-        elif chart_type == '饼图':
-            value_col = df.select_dtypes(include=[np.number]).columns.tolist()
-            if value_col and len(df) <= 20:
-                fig = px.pie(df, values=value_col[0], names=df.columns[0], title=f'{data_type}饼图')
+            elif data_type == "物料" and 'material_name' in df.columns and 'stock_quantity' in df.columns:
+                top10 = df.nlargest(10, 'stock_quantity')
+                fig = px.bar(top10, x='material_name', y='stock_quantity', 
+                             color='supplier' if 'supplier' in df.columns else None,
+                             title='物料库存 Top 10', text_auto=True,
+                             labels={'material_name': '物料名称', 'stock_quantity': '库存数量', 'supplier': '供应商'})
+                fig.update_layout(xaxis_tickangle=-45)
                 return fig
-        elif chart_type == '折线图':
-            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-            if numeric_cols:
-                x_col = df.columns[0]
-                y_col = numeric_cols[0]
-                fig = px.line(df, x=x_col, y=y_col, title=f'{data_type}折线图', markers=True,
-                              labels={x_col: format_col_name(x_col), y_col: format_col_name(y_col)})
-                return fig
-        elif chart_type == '散点图':
-            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-            if len(numeric_cols) >= 2:
-                x_col = numeric_cols[0]
-                y_col = numeric_cols[1]
-                fig = px.scatter(df, x=x_col, y=y_col, title=f'{data_type}散点图',
+            else:
+                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                if numeric_cols and len(df.columns) > 0:
+                    x_col = df.columns[0]
+                    y_col = numeric_cols[0]
+                    fig = px.bar(df, x=x_col, y=y_col, title=f'{data_type}数据概览',
                                  labels={x_col: format_col_name(x_col), y_col: format_col_name(y_col)})
-                return fig
+                    return fig
+        else:
+            if chart_type == '柱状图':
+                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                if numeric_cols and len(df.columns) > 0:
+                    x_col = df.columns[0]
+                    y_col = numeric_cols[0]
+                    fig = px.bar(df, x=x_col, y=y_col, title=f'{data_type}柱状图', text_auto=True,
+                                 labels={x_col: format_col_name(x_col), y_col: format_col_name(y_col)})
+                    return fig
+            elif chart_type == '饼图':
+                value_col = df.select_dtypes(include=[np.number]).columns.tolist()
+                if value_col and len(df) <= 20:
+                    fig = px.pie(df, values=value_col[0], names=df.columns[0], title=f'{data_type}饼图')
+                    return fig
+            elif chart_type == '折线图':
+                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                if numeric_cols and len(df.columns) > 0:
+                    x_col = df.columns[0]
+                    y_col = numeric_cols[0]
+                    fig = px.line(df, x=x_col, y=y_col, title=f'{data_type}折线图', markers=True,
+                                  labels={x_col: format_col_name(x_col), y_col: format_col_name(y_col)})
+                    return fig
+            elif chart_type == '散点图':
+                numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                if len(numeric_cols) >= 2:
+                    x_col = numeric_cols[0]
+                    y_col = numeric_cols[1]
+                    fig = px.scatter(df, x=x_col, y=y_col, title=f'{data_type}散点图',
+                                     labels={x_col: format_col_name(x_col), y_col: format_col_name(y_col)})
+                    return fig
+    except Exception as e:
+        print(f"生成默认图表失败: {str(e)}")
+        return None
     return None
 
 def ai_generate_visualization(df, data_type, chart_style="自动选择"):
@@ -598,11 +602,16 @@ def ai_generate_visualization(df, data_type, chart_style="自动选择"):
 要求：
 1. 只返回Python代码，不要包含任何解释、注释或markdown标记。
 2. 代码必须定义变量 fig，例如 fig = px.bar(...) 或 fig = px.pie(...) 等。
-3. 如果使用px.bar/px.scatter等，添加合适的trendline或模式参数以增强对比效果。
-4. 图表要能直观展示数据特征，包含标题和轴标签。
-5. 所有轴标签、图例标题必须使用中文（例如使用中文列名）。
-6. 代码应可直接在streamlit中运行（使用st.plotly_chart(fig)）。
-7. 尽量避免与前面生成过的图表相同，选择多样化的图表类型。
+3. 使用 plotly.express (px) 和 pandas (pd) 生成可视化，必要时可用 plotly.graph_objects (go) 和 numpy (np)。
+4. 添加合适的图表参数以增强展示效果（如 text_auto=True）。
+5. 图表要能直观展示数据特征，包含标题和轴标签。
+6. 所有轴标签、图例标题必须使用中文。
+7. 确保代码能在 Python 中直接执行（无需额外依赖）。
+8. 优先使用不同于以下类型的图表：
+   - 如果是任务数据，尝试使用时间序列分析而非简单柱状图
+   - 如果是设备数据，可用热力图或利用率分析
+   - 如果是物料数据，可用库存预警或供应分析
+9. 避免使用仅在特定版本plotly中支持的特性。
 
 代码：
 """
@@ -622,7 +631,13 @@ def ai_generate_visualization(df, data_type, chart_style="自动选择"):
         code = code[:-3]
     code = code.strip()
     try:
-        exec_globals = {'pd': pd, 'px': px, 'df': df}
+        exec_globals = {
+            'pd': pd, 
+            'px': px, 
+            'go': go, 
+            'np': np, 
+            'df': df
+        }
         exec(code, exec_globals)
         fig = exec_globals.get('fig', None)
         if fig is None:
