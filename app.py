@@ -565,25 +565,44 @@ def create_default_chart(df, data_type, chart_type='auto'):
                 return fig
     return None
 
-def ai_generate_visualization(df, data_type):
-    """调用AI生成Plotly图表代码，要求轴标签为中文"""
+def ai_generate_visualization(df, data_type, chart_style="自动选择"):
+    """调用AI生成Plotly图表代码，要求轴标签为中文，支持多种风格"""
     if df.empty:
         return None, "无数据可生成图表"
     
     summary = df.head(10).to_string()
     cols = list(df.columns)
+    
+    # 根据风格提示AI生成对应的图表
+    style_hints = {
+        "自动选择": "根据数据特征自动选择最合适的图表类型",
+        "趋势分析": "使用折线图、面积图等展示数据趋势变化",
+        "对比分析": "使用柱状图、雷达图等展示数据对比",
+        "分布分析": "使用直方图、箱线图等展示数据分布",
+        "占比分析": "使用饼图、环形图、瀑布图等展示占比关系",
+        "关联分析": "使用散点图、气泡图、热力图等展示数据关联",
+        "排序展示": "使用横向柱状图、树形图等展示排序结果"
+    }
+    
+    style_description = style_hints.get(chart_style, "")
+    
     prompt = f"""
-你是一个专业的数据可视化专家。基于以下{data_type}数据，请生成一段Python代码，使用plotly.express绘制一个最合适的图表。
+你是一个专业的数据可视化专家。基于以下{data_type}数据，请生成一段Python代码，使用plotly.express绘制图表。
+
 数据列：{cols}
 数据样例：
 {summary}
 
+可视化风格需求：{style_description}
+
 要求：
 1. 只返回Python代码，不要包含任何解释、注释或markdown标记。
 2. 代码必须定义变量 fig，例如 fig = px.bar(...) 或 fig = px.pie(...) 等。
-3. 图表要能直观展示数据特征，包含标题和轴标签。
-4. 所有轴标签、图例标题必须使用中文（例如使用中文列名）。
-5. 代码应可直接在streamlit中运行（使用st.plotly_chart(fig)）。
+3. 如果使用px.bar/px.scatter等，添加合适的trendline或模式参数以增强对比效果。
+4. 图表要能直观展示数据特征，包含标题和轴标签。
+5. 所有轴标签、图例标题必须使用中文（例如使用中文列名）。
+6. 代码应可直接在streamlit中运行（使用st.plotly_chart(fig)）。
+7. 尽量避免与前面生成过的图表相同，选择多样化的图表类型。
 
 代码：
 """
@@ -886,8 +905,32 @@ def create_enhanced_dashboard():
 st.set_page_config(page_title="生产排程与供应链智能分析系统", layout="wide")
 st.title("生产排程与供应链智能分析系统")
 st.markdown("""
-<div style='background-color: #e3f2fd; padding: 10px; border-radius: 5px; margin-bottom: 20px;'>
-    <strong>系统特性：</strong> 精确字段映射 | BOM物料清单 | 多物料短缺判断 | 多策略优化排程 | 增强可视化 | AI问答 | 紧急订单插入
+<style>
+.system-features {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-weight: bold;
+    border-left: 6px solid;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+@media (prefers-color-scheme: light) {
+    .system-features {
+        background: linear-gradient(135deg, #c3e7ff 0%, #e3f2fd 100%);
+        color: #003d99;
+        border-left-color: #0066ff;
+    }
+}
+@media (prefers-color-scheme: dark) {
+    .system-features {
+        background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
+        color: #ffffff;
+        border-left-color: #64b5f6;
+    }
+}
+</style>
+<div class="system-features">
+    <strong>✨ 系统特性：</strong> 精确字段映射 | BOM物料清单 | 多物料短缺判断 | 多策略优化排程 | 增强可视化 | AI问答 | 紧急订单插入
 </div>
 """, unsafe_allow_html=True)
 
@@ -1192,30 +1235,108 @@ elif menu == "可视化仪表盘":
     create_enhanced_dashboard()
     
     st.divider()
-    st.markdown("### AI动态生成图表")
+    st.markdown("### 🎨 AI多样化图表生成器")
+    st.info("选择数据源和可视化风格，AI会生成不同类型的创意图表。刷新页面或点击按钮多次可获取多种不同的图表。")
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        if st.button("生成任务图表"):
+    # AI 生成配置区域
+    col_config1, col_config2, col_config3 = st.columns(3)
+    
+    with col_config1:
+        data_source = st.selectbox(
+            "📊 选择数据源",
+            ["生产任务", "设备信息", "物料信息", "BOM清单", "排程历史"],
+            key="ai_datasource"
+        )
+    
+    with col_config2:
+        chart_style = st.selectbox(
+            "🎨 选择可视化风格",
+            ["自动选择", "趋势分析", "对比分析", "分布分析", "占比分析", "关联分析", "排序展示"],
+            key="ai_style"
+        )
+    
+    with col_config3:
+        num_charts = st.slider(
+            "生成数量",
+            min_value=1,
+            max_value=3,
+            value=1,
+            key="ai_num_charts",
+            help="一次生成多个不同的图表进行对比"
+        )
+    
+    # 数据源映射
+    data_source_map = {
+        "生产任务": ("SELECT * FROM production_tasks", "生产任务"),
+        "设备信息": ("SELECT * FROM equipment_info", "设备"),
+        "物料信息": ("SELECT * FROM material_info", "物料"),
+        "BOM清单": ("SELECT * FROM bom_info", "BOM"),
+        "排程历史": ("SELECT * FROM schedule_history", "排程历史"),
+    }
+    
+    if st.button("🚀 生成创意图表", type="primary", use_container_width=True):
+        sql_query, data_type = data_source_map[data_source]
+        df = pd.read_sql(sql_query, conn)
+        
+        if df.empty:
+            st.warning(f"❌ {data_source}中暂无数据")
+        else:
+            # 生成多个图表
+            for i in range(num_charts):
+                with st.spinner(f"🤖 AI正在生成第 {i+1}/{num_charts} 个图表（风格：{chart_style}）..."):
+                    fig, msg = ai_generate_visualization(df, data_type, chart_style)
+                
+                if fig:
+                    st.success(f"✅ 图表 {i+1} 生成成功")
+                    st.plotly_chart(fig, use_container_width=True, key=f"ai_chart_{data_source}_{i}_{time.time()}")
+                else:
+                    st.error(f"❌ 图表 {i+1} 生成失败")
+                
+                st.caption(msg)
+                if i < num_charts - 1:
+                    st.divider()
+    
+    st.markdown("---")
+    st.markdown("#### 💡 快速生成演示")
+    
+    # 快速演示按钮（3列布局）
+    demo_col1, demo_col2, demo_col3 = st.columns(3)
+    
+    with demo_col1:
+        if st.button("📈 任务趋势分析", use_container_width=True):
             df = pd.read_sql("SELECT * FROM production_tasks", conn)
-            fig, msg = ai_generate_visualization(df, "生产任务")
-            if fig:
-                st.plotly_chart(fig, use_container_width=True, key=f"ai_chart_task_{time.time()}")
-            st.caption(msg)
-    with col2:
-        if st.button("生成设备图表"):
+            if not df.empty:
+                with st.spinner("生成中..."):
+                    fig, msg = ai_generate_visualization(df, "生产任务", "趋势分析")
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True, key=f"demo_task_trend_{time.time()}")
+                st.caption(msg)
+            else:
+                st.warning("暂无数据")
+    
+    with demo_col2:
+        if st.button("⚙️ 设备对比分析", use_container_width=True):
             df = pd.read_sql("SELECT * FROM equipment_info", conn)
-            fig, msg = ai_generate_visualization(df, "设备")
-            if fig:
-                st.plotly_chart(fig, use_container_width=True, key=f"ai_chart_equip_{time.time()}")
-            st.caption(msg)
-    with col3:
-        if st.button("生成物料图表"):
+            if not df.empty:
+                with st.spinner("生成中..."):
+                    fig, msg = ai_generate_visualization(df, "设备", "对比分析")
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True, key=f"demo_equip_compare_{time.time()}")
+                st.caption(msg)
+            else:
+                st.warning("暂无数据")
+    
+    with demo_col3:
+        if st.button("📦 物料分布分析", use_container_width=True):
             df = pd.read_sql("SELECT * FROM material_info", conn)
-            fig, msg = ai_generate_visualization(df, "物料")
-            if fig:
-                st.plotly_chart(fig, use_container_width=True, key=f"ai_chart_material_{time.time()}")
-            st.caption(msg)
+            if not df.empty:
+                with st.spinner("生成中..."):
+                    fig, msg = ai_generate_visualization(df, "物料", "分布分析")
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True, key=f"demo_material_dist_{time.time()}")
+                st.caption(msg)
+            else:
+                st.warning("暂无数据")
 
 # -------------------------- 智能问答页面（新增紧急订单插入，支持手动添加物料）--------------------------
 elif menu == "智能问答":
