@@ -593,25 +593,30 @@ def ai_generate_visualization(df, data_type, chart_style="自动选择"):
     prompt = f"""
 你是一个专业的数据可视化专家。基于以下{data_type}数据，请生成一段Python代码，使用plotly.express绘制图表。
 
+数据已经在变量 df 中提供，这是一个 pandas DataFrame：
 数据列：{cols}
 数据样例：
 {summary}
 
 可视化风格需求：{style_description}
 
+重要提示：
+- 数据已经存储在 df 变量中，直接使用它，不要重新创建 DataFrame
+- 代码会在已导入 pandas (pd)、plotly.express (px)、plotly.graph_objects (go)、numpy (np) 的环境中执行
+- 不需要写 import 语句，这些库已经可用
+- 直接使用 df、pd、px、go、np
+
 要求：
-1. 只返回Python代码，不要包含任何解释、注释或markdown标记。
-2. 代码必须定义变量 fig，例如 fig = px.bar(...) 或 fig = px.pie(...) 等。
-3. 使用 plotly.express (px) 和 pandas (pd) 生成可视化，必要时可用 plotly.graph_objects (go) 和 numpy (np)。
-4. 添加合适的图表参数以增强展示效果（如 text_auto=True）。
-5. 图表要能直观展示数据特征，包含标题和轴标签。
-6. 所有轴标签、图例标题必须使用中文。
-7. 确保代码能在 Python 中直接执行（无需额外依赖）。
-8. 优先使用不同于以下类型的图表：
-   - 如果是任务数据，尝试使用时间序列分析而非简单柱状图
-   - 如果是设备数据，可用热力图或利用率分析
-   - 如果是物料数据，可用库存预警或供应分析
-9. 避免使用仅在特定版本plotly中支持的特性。
+1. 只返回Python代码，不要包含任何解释、注释或markdown符号
+2. 代码必须定义变量 fig，例如 fig = px.bar(df, ...) 或 fig = px.pie(df, ...)
+3. 不要写任何 import 语句，不要重新创建 df DataFrame
+4. 使用 plotly.express (px) 和 pandas (pd) 生成可视化，必要时可用 plotly.graph_objects (go) 和 numpy (np)
+5. 添加合适的图表参数以增强展示效果（如 text_auto=True）
+6. 图表要能直观展示数据特征，包含标题和轴标签
+7. 所有轴标签、图例标题必须使用中文
+8. 确保代码能在 Python 中直接执行（无需额外依赖）
+9. 优先使用不同于简单柱状图的图表类型以增加多样性
+10. 避免使用仅在特定版本plotly中支持的特性
 
 代码：
 """
@@ -622,7 +627,9 @@ def ai_generate_visualization(df, data_type, chart_style="自动选择"):
             return default_fig, f"AI服务不可用，使用默认{data_type}图表"
         else:
             return None, "无法生成默认图表"
+    
     code = response.strip()
+    # 移除 markdown 代码块标记
     if code.startswith("```python"):
         code = code[9:]
     elif code.startswith("```"):
@@ -630,6 +637,20 @@ def ai_generate_visualization(df, data_type, chart_style="自动选择"):
     if code.endswith("```"):
         code = code[:-3]
     code = code.strip()
+    
+    # 过滤掉 import 语句和 df 重新赋值（因为我们已经在执行环境中提供了这些）
+    code_lines = []
+    for line in code.split('\n'):
+        stripped = line.strip()
+        # 跳过 import 语句
+        if stripped.startswith('import ') or stripped.startswith('from '):
+            continue
+        # 跳过重新创建 DataFrame 的代码（通常是 df = pd.DataFrame(...) 这样的行）
+        if stripped.startswith('df ') and '= pd.DataFrame' in stripped:
+            continue
+        code_lines.append(line)
+    code = '\n'.join(code_lines)
+    
     try:
         exec_globals = {
             'pd': pd, 
