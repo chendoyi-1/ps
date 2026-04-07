@@ -182,7 +182,7 @@ def render_import_page():
 def render_data_view_page():
     st.subheader("数据库内容查看")
     if st.button("刷新数据"):
-        st.experimental_rerun()
+        st.rerun()
 
     tab_labels = ["生产任务", "设备信息", "物料信息", "排程历史", "BOM物料清单"]
     tab_queries = [
@@ -231,7 +231,7 @@ def render_scheduling_page():
             cursor.execute("UPDATE production_tasks SET task_status='待排程', assigned_equipment=NULL, start_date=NULL, end_date=NULL WHERE task_status='已排程'")
             conn.commit()
             st.success("所有已排程任务已重置为待排程")
-            st.experimental_rerun()
+            st.rerun()
     with hint_col:
         st.caption("将已排程任务恢复为待排程，清空设备分配和时间信息，便于重新排程。")
 
@@ -264,7 +264,7 @@ def render_scheduling_page():
             with st.spinner("优化排程中..."):
                 result = optimizer.run_optimized_scheduling(strategy_map[strategy], priorities if strategy == "优先级优先" else None)
             st.success(result)
-            st.experimental_rerun()
+            st.rerun()
 
     st.divider()
     st.markdown("### 待排程任务列表")
@@ -412,13 +412,13 @@ def render_smart_qna_page():
             mat_qty = row_cols[1].number_input("数量", min_value=0.0, value=0.0, step=0.1, key=f"mat_qty_{row_id}")
             if row_cols[2].button("删除", key=f"del_{row_id}"):
                 st.session_state.material_rows.pop(i)
-                st.experimental_rerun()
+                st.rerun()
             if mat_name and mat_qty > 0:
                 material_items.append({"material": mat_name, "required": mat_qty})
 
         if st.button("➕ 添加物料"):
             st.session_state.material_rows.append(len(st.session_state.material_rows))
-            st.experimental_rerun()
+            st.rerun()
 
         if st.button("提交紧急订单", type='primary'):
             if not task_name or not product_name:
@@ -510,6 +510,8 @@ def render_system_settings_page():
         cursor.execute("DELETE FROM material_info")
         cursor.execute("DELETE FROM schedule_history")
         cursor.execute("DELETE FROM bom_info")
+        # Reset SQLite AUTOINCREMENT counters so IDs start from 1 again after clearing all data.
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name IN ('production_tasks', 'equipment_info', 'material_info', 'schedule_history', 'bom_info')")
         conn.commit()
         st.success("所有数据已清空")
 
