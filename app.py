@@ -432,29 +432,42 @@ def render_smart_qna_page():
             if not task_name or not product_name:
                 st.error("任务名称和产品名称为必填项")
             else:
-                material_json = None
-                if material_items:
-                    material_json = json.dumps(material_items, ensure_ascii=False)
-                cursor.execute(
-                    '''
-                    INSERT INTO production_tasks
-                    (task_name, product_name, production_quantity, responsible_person, start_date, end_date, priority, material_required)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ''',
-                    (
-                        task_name,
-                        product_name,
-                        quantity,
-                        responsible or None,
-                        start_date.strftime("%Y-%m-%d") if start_date else None,
-                        end_date.strftime("%Y-%m-%d") if end_date else None,
-                        priority,
-                        material_json
-                    )
-                )
-                conn.commit()
-                st.success("紧急订单已添加，当前状态为「待排程」。请前往「智能排程」页面执行排程。")
-                st.session_state.material_rows = [0]
+                invalid_items = [item for item in material_items if not item.get('material') or item.get('required', 0) <= 0]
+                if invalid_items:
+                    st.error("请确保所有物料项都填写了物料名称且数量大于0。")
+                else:
+                    df_bom_match = pd.read_sql("SELECT * FROM bom_info WHERE product_name = ?", conn, params=(product_name,))
+                    if not material_items and df_bom_match.empty:
+                        st.error("当前产品未在BOM中定义，请填写物料需求或先添加对应BOM信息。")
+                    else:
+                        existing_materials = pd.read_sql("SELECT material_name FROM material_info", conn)['material_name'].tolist()
+                        missing_materials = [item['material'] for item in material_items if item['material'] not in existing_materials]
+                        if missing_materials:
+                            st.error(f"以下物料尚未添加到物料信息中，请先补充：{', '.join(missing_materials)}")
+                        else:
+                            material_json = None
+                            if material_items:
+                                material_json = json.dumps(material_items, ensure_ascii=False)
+                            cursor.execute(
+                                '''
+                                INSERT INTO production_tasks
+                                (task_name, product_name, production_quantity, responsible_person, start_date, end_date, priority, material_required)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                ''',
+                                (
+                                    task_name,
+                                    product_name,
+                                    quantity,
+                                    responsible or None,
+                                    start_date.strftime("%Y-%m-%d") if start_date else None,
+                                    end_date.strftime("%Y-%m-%d") if end_date else None,
+                                    priority,
+                                    material_json
+                                )
+                            )
+                            conn.commit()
+                            st.success("紧急订单已添加，当前状态为「待排程」。请前往「智能排程」页面执行排程。")
+                            st.session_state.material_rows = [0]
 
     df_tasks = pd.read_sql("SELECT * FROM production_tasks", conn)
     df_equip = pd.read_sql("SELECT * FROM equipment_info", conn)
