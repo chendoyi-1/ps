@@ -31,6 +31,14 @@ def safe_float(value, default=0.0):
         return default
 
 
+def safe_rerun():
+    if hasattr(st, 'rerun'):
+        return st.rerun()
+    if hasattr(st, 'experimental_rerun'):
+        return st.experimental_rerun()
+    raise RuntimeError('当前 Streamlit 版本不支持 rerun')
+
+
 def show_import_preview(df, mapped, unused, missing):
     if mapped:
         st.write("字段映射结果：")
@@ -182,7 +190,7 @@ def render_import_page():
 def render_data_view_page():
     st.subheader("数据库内容查看")
     if st.button("刷新数据"):
-        st.rerun()
+        safe_rerun()
 
     tab_labels = ["生产任务", "设备信息", "物料信息", "排程历史", "BOM物料清单"]
     tab_queries = [
@@ -231,7 +239,7 @@ def render_scheduling_page():
             cursor.execute("UPDATE production_tasks SET task_status='待排程', assigned_equipment=NULL, start_date=NULL, end_date=NULL WHERE task_status='已排程'")
             conn.commit()
             st.success("所有已排程任务已重置为待排程")
-            st.rerun()
+            safe_rerun()
     with hint_col:
         st.caption("将已排程任务恢复为待排程，清空设备分配和时间信息，便于重新排程。")
 
@@ -264,7 +272,7 @@ def render_scheduling_page():
             with st.spinner("优化排程中..."):
                 result = optimizer.run_optimized_scheduling(strategy_map[strategy], priorities if strategy == "优先级优先" else None)
             st.success(result)
-            st.rerun()
+            safe_rerun()
 
     st.divider()
     st.markdown("### 待排程任务列表")
@@ -412,13 +420,13 @@ def render_smart_qna_page():
             mat_qty = row_cols[1].number_input("数量", min_value=0.0, value=0.0, step=0.1, key=f"mat_qty_{row_id}")
             if row_cols[2].button("删除", key=f"del_{row_id}"):
                 st.session_state.material_rows.pop(i)
-                st.rerun()
+                safe_rerun()
             if mat_name and mat_qty > 0:
                 material_items.append({"material": mat_name, "required": mat_qty})
 
         if st.button("➕ 添加物料"):
             st.session_state.material_rows.append(len(st.session_state.material_rows))
-            st.rerun()
+            safe_rerun()
 
         if st.button("提交紧急订单", type='primary'):
             if not task_name or not product_name:
