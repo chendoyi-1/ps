@@ -40,6 +40,17 @@ def _clean_ai_code(code: str):
     return code.strip()
 
 
+def _normalize_figure(fig):
+    if isinstance(fig, go.Figure):
+        return fig
+    if isinstance(fig, dict):
+        try:
+            return go.Figure(fig)
+        except Exception:
+            return None
+    return None
+
+
 def create_default_chart(df: pd.DataFrame, data_type: str, chart_type: str = 'auto'):
     if df.empty:
         return None
@@ -164,9 +175,10 @@ def ai_generate_visualization(df: pd.DataFrame, data_type: str, chart_style: str
         exec_globals = {'pd': pd, 'px': px, 'go': go, 'np': np, 'df': df}
         exec(code, exec_globals)
         fig = exec_globals.get('fig')
+        fig = _normalize_figure(fig)
         if fig is None:
             default_fig = create_default_chart(df, data_type, 'auto')
-            return default_fig, "AI生成的代码未定义fig变量，使用默认图表" if default_fig else (None, "AI生成的代码未定义fig变量，且无法生成默认图表")
+            return default_fig, "AI生成的代码未返回有效图表，使用默认图表" if default_fig else (None, "AI生成的代码未返回有效图表，且无法生成默认图表")
         return fig, "AI生成图表成功"
     except Exception as e:
         default_fig = create_default_chart(df, data_type, 'auto')
