@@ -211,18 +211,22 @@ def render_data_view_page():
                 continue
 
             st.markdown("### 删除单条记录")
-            for _, row in df.iterrows():
-                col1, col2 = st.columns([4, 1])
+            for idx, row in enumerate(df.itertuples(index=False), start=1):
+                col1, col2 = st.columns([5, 1])
                 with col1:
-                    # 显示行摘要
-                    summary = f"ID: {row[id_field]} - " + ", ".join([f"{k}: {v}" for k, v in row.items() if k != id_field][:3])  # 前3个字段
+                    values = list(row)
+                    row_dict = dict(zip(df.columns, values))
+                    summary = f"序号: {idx} | 记录ID: {row_dict[id_field]} | " + " | ".join(
+                        [f"{k}: {v}" for k, v in row_dict.items() if k != id_field][:3]
+                    )
                     st.write(summary)
                 with col2:
-                    if st.button("删除", key=f"delete_{table_name}_{row[id_field]}"):
-                        cursor.execute(f"DELETE FROM {table_name} WHERE {id_field} = ?", (row[id_field],))
+                    if st.button("删除", key=f"delete_{table_name}_{row_dict[id_field]}"):
+                        cursor.execute(f"DELETE FROM {table_name} WHERE {id_field} = ?", (row_dict[id_field],))
                         conn.commit()
-                        st.success(f"已删除记录 ID: {row[id_field]}")
+                        st.success(f"已删除记录 记录ID: {row_dict[id_field]}")
                         safe_rerun()
+                st.divider()
 
 
 def render_scheduling_page():
