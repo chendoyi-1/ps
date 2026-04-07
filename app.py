@@ -1527,8 +1527,9 @@ BOM样例（前3条）：
 # -------------------------- 系统设置页面 --------------------------
 elif menu == "系统设置":
     st.subheader("系统设置")
-    if st.button("清空所有数据（谨慎）"):
-        if st.checkbox("确认清空所有数据？此操作不可恢复"):
+    confirm_clear = st.checkbox("确认清空所有数据？此操作不可恢复", key="confirm_clear")
+    if confirm_clear:
+        if st.button("清空所有数据（谨慎）", key="clear_all"):
             cursor.execute("DELETE FROM production_tasks")
             cursor.execute("DELETE FROM equipment_info")
             cursor.execute("DELETE FROM material_info")
@@ -1536,3 +1537,5 @@ elif menu == "系统设置":
             cursor.execute("DELETE FROM bom_info")
             conn.commit()
             st.success("所有数据已清空")
+    else:
+        st.info("请先勾选上方复选框，再点击 “清空所有数据（谨慎）”。")
