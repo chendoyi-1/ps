@@ -192,20 +192,37 @@ def render_data_view_page():
     if st.button("刷新数据"):
         safe_rerun()
 
-    tab_labels = ["生产任务", "设备信息", "物料信息", "排程历史", "BOM物料清单"]
-    tab_queries = [
-        "SELECT * FROM production_tasks",
-        "SELECT * FROM equipment_info",
-        "SELECT * FROM material_info",
-        "SELECT * FROM schedule_history",
-        "SELECT * FROM bom_info"
+    tab_info = [
+        ("生产任务", "SELECT * FROM production_tasks", "production_tasks", "task_id"),
+        ("设备信息", "SELECT * FROM equipment_info", "equipment_info", "equip_id"),
+        ("物料信息", "SELECT * FROM material_info", "material_info", "material_id"),
+        ("排程历史", "SELECT * FROM schedule_history", "schedule_history", "schedule_id"),
+        ("BOM物料清单", "SELECT * FROM bom_info", "bom_info", "bom_id")
     ]
-    tabs = st.tabs(tab_labels)
-    for tab, sql in zip(tabs, tab_queries):
+
+    tabs = st.tabs([info[0] for info in tab_info])
+    for tab, (_, sql, table_name, id_field) in zip(tabs, tab_info):
         with tab:
             df = pd.read_sql(sql, conn)
             st.dataframe(df_columns_to_chinese(df), use_container_width=True)
             st.caption(f"共 {len(df)} 条记录")
+
+            if df.empty:
+                continue
+
+            st.markdown("### 删除单条记录")
+            for _, row in df.iterrows():
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    # 显示行摘要
+                    summary = f"ID: {row[id_field]} - " + ", ".join([f"{k}: {v}" for k, v in row.items() if k != id_field][:3])  # 前3个字段
+                    st.write(summary)
+                with col2:
+                    if st.button("删除", key=f"delete_{table_name}_{row[id_field]}"):
+                        cursor.execute(f"DELETE FROM {table_name} WHERE {id_field} = ?", (row[id_field],))
+                        conn.commit()
+                        st.success(f"已删除记录 ID: {row[id_field]}")
+                        safe_rerun()
 
 
 def render_scheduling_page():
@@ -313,6 +330,11 @@ def render_visualization_page():
     st.markdown("### 🎨 AI多样化图表生成器")
     st.info("选择数据源和可视化风格，AI将生成不同类型的创意图表。")
 
+    if "ai_generated_charts" not in st.session_state:
+        st.session_state.ai_generated_charts = []
+    if "ai_demo_charts" not in st.session_state:
+        st.session_state.ai_demo_charts = {}
+
     col1, col2, col3 = st.columns(3)
     with col1:
         data_source = st.selectbox("📊 选择数据源", ["生产任务", "设备信息", "物料信息", "BOM清单", "排程历史"], key="ai_datasource")
@@ -335,17 +357,30 @@ def render_visualization_page():
         if df.empty:
             st.warning(f"❌ {data_source}中暂无数据")
         else:
+            charts = []
             for i in range(num_charts):
-                with st.spinner(f"🤖 AI正在生成第 {i+1}/{num_charts} 个图表（风格：{chart_style}）..."):
+                with st.spinner(f"正在生成第 {i+1}/{num_charts} 个图表（风格：{chart_style}）..."):
                     fig, msg = ai_generate_visualization(df, data_type, chart_style)
                 if fig:
-                    st.success(f"✅ 图表 {i+1} 生成成功")
-                    st.plotly_chart(fig, use_container_width=True, key=f"ai_chart_{data_source}_{i}_{time.time()}")
+                    charts.append({"fig": fig, "msg": msg, "title": f"AI创意图表 {i+1}"})
                 else:
-                    st.error(f"❌ 图表 {i+1} 生成失败")
-                st.caption(msg)
-                if i < num_charts - 1:
-                    st.divider()
+                    st.error(f"图表 {i+1} 生成失败：{msg}")
+            if charts:
+                st.session_state.ai_generated_charts = charts
+
+    if st.session_state.ai_generated_charts:
+        cols_clear = st.columns([4, 1])
+        with cols_clear[1]:
+            if st.button("清空创意图表", key="clear_ai_generated_charts"):
+                st.session_state.ai_generated_charts = []
+                safe_rerun()
+        st.markdown("####  已生成创意图表")
+        for idx, chart_info in enumerate(st.session_state.ai_generated_charts, start=1):
+            st.markdown(f"**{chart_info.get('title', f'图表 {idx}')}:**")
+            st.plotly_chart(chart_info['fig'], use_container_width=True, key=f"stored_ai_chart_{idx}")
+            st.caption(chart_info.get('msg', ''))
+            if idx < len(st.session_state.ai_generated_charts):
+                st.divider()
 
     st.markdown("---")
     st.markdown("#### 💡 快速生成演示")
@@ -356,11 +391,11 @@ def render_visualization_page():
         if df.empty:
             st.warning("📊 暂无生产任务数据，请先导入数据")
         else:
-            with st.spinner("🤖 AI正在生成任务趋势分析..."):
+            with st.spinner("正在生成任务趋势分析..."):
                 fig, msg = ai_generate_visualization(df, "生产任务", "趋势分析")
             if fig:
+                st.session_state.ai_demo_charts["task_trend"] = {"fig": fig, "msg": msg, "title": "任务趋势分析"}
                 st.success("✅ 图表生成成功")
-                st.plotly_chart(fig, use_container_width=True, key="demo_task_trend_chart")
             else:
                 st.error("❌ 图表生成失败")
             st.caption(msg)
@@ -370,11 +405,11 @@ def render_visualization_page():
         if df.empty:
             st.warning("📊 暂无设备数据，请先导入数据")
         else:
-            with st.spinner("🤖 AI正在生成设备对比分析..."):
+            with st.spinner("正在生成设备对比分析..."):
                 fig, msg = ai_generate_visualization(df, "设备", "对比分析")
             if fig:
+                st.session_state.ai_demo_charts["equip_compare"] = {"fig": fig, "msg": msg, "title": "设备对比分析"}
                 st.success("✅ 图表生成成功")
-                st.plotly_chart(fig, use_container_width=True, key="demo_equip_compare_chart")
             else:
                 st.error("❌ 图表生成失败")
             st.caption(msg)
@@ -384,14 +419,27 @@ def render_visualization_page():
         if df.empty:
             st.warning("📊 暂无物料数据，请先导入数据")
         else:
-            with st.spinner("🤖 AI正在生成物料分布分析..."):
+            with st.spinner("正在生成物料分布分析..."):
                 fig, msg = ai_generate_visualization(df, "物料", "分布分析")
             if fig:
+                st.session_state.ai_demo_charts["material_dist"] = {"fig": fig, "msg": msg, "title": "物料分布分析"}
                 st.success("✅ 图表生成成功")
-                st.plotly_chart(fig, use_container_width=True, key="demo_material_dist_chart")
             else:
                 st.error("❌ 图表生成失败")
             st.caption(msg)
+
+    if st.session_state.ai_demo_charts:
+        cols_clear_demo = st.columns([4, 1])
+        with cols_clear_demo[1]:
+            if st.button("清空快速演示", key="clear_ai_demo_charts"):
+                st.session_state.ai_demo_charts = {}
+                safe_rerun()
+        st.markdown("#### 🧪 已生成快速演示图表")
+        for key, chart_info in st.session_state.ai_demo_charts.items():
+            st.markdown(f"**{chart_info.get('title', key)}**")
+            st.plotly_chart(chart_info['fig'], use_container_width=True, key=f"stored_demo_{key}")
+            st.caption(chart_info.get('msg', ''))
+            st.divider()
 
 
 def render_smart_qna_page():
@@ -413,10 +461,19 @@ def render_smart_qna_page():
         if "material_rows" not in st.session_state:
             st.session_state.material_rows = [0]
 
+        existing_materials = pd.read_sql("SELECT material_name FROM material_info", conn)['material_name'].dropna().unique().tolist()
+        existing_materials = sorted(set(existing_materials))
+        material_options = ["手动输入"] + existing_materials if existing_materials else ["手动输入"]
+
         material_items = []
         for i, row_id in enumerate(st.session_state.material_rows):
             row_cols = st.columns([3, 2, 1])
-            mat_name = row_cols[0].text_input("物料名称", key=f"mat_name_{row_id}", placeholder="例如：ABS塑料")
+            selected_material = row_cols[0].selectbox("已有物料", material_options, key=f"mat_option_{row_id}")
+            if selected_material == "手动输入":
+                mat_name = row_cols[0].text_input("物料名称", key=f"mat_name_{row_id}", placeholder="例如：ABS塑料")
+            else:
+                mat_name = selected_material
+                row_cols[0].write(f"已选：{mat_name}")
             mat_qty = row_cols[1].number_input("数量", min_value=0.0, value=0.0, step=0.1, key=f"mat_qty_{row_id}")
             if row_cols[2].button("删除", key=f"del_{row_id}"):
                 st.session_state.material_rows.pop(i)
@@ -425,7 +482,8 @@ def render_smart_qna_page():
                 material_items.append({"material": mat_name, "required": mat_qty})
 
         if st.button("➕ 添加物料"):
-            st.session_state.material_rows.append(len(st.session_state.material_rows))
+            next_id = max(st.session_state.material_rows) + 1 if st.session_state.material_rows else 0
+            st.session_state.material_rows.append(next_id)
             safe_rerun()
 
         if st.button("提交紧急订单", type='primary'):
@@ -440,34 +498,33 @@ def render_smart_qna_page():
                     if not material_items and df_bom_match.empty:
                         st.error("当前产品未在BOM中定义，请填写物料需求或先添加对应BOM信息。")
                     else:
-                        existing_materials = pd.read_sql("SELECT material_name FROM material_info", conn)['material_name'].tolist()
+                        existing_materials = pd.read_sql("SELECT material_name FROM material_info", conn)['material_name'].dropna().tolist()
                         missing_materials = [item['material'] for item in material_items if item['material'] not in existing_materials]
                         if missing_materials:
-                            st.error(f"以下物料尚未添加到物料信息中，请先补充：{', '.join(missing_materials)}")
-                        else:
-                            material_json = None
-                            if material_items:
-                                material_json = json.dumps(material_items, ensure_ascii=False)
-                            cursor.execute(
-                                '''
-                                INSERT INTO production_tasks
-                                (task_name, product_name, production_quantity, responsible_person, start_date, end_date, priority, material_required)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                                ''',
-                                (
-                                    task_name,
-                                    product_name,
-                                    quantity,
-                                    responsible or None,
-                                    start_date.strftime("%Y-%m-%d") if start_date else None,
-                                    end_date.strftime("%Y-%m-%d") if end_date else None,
-                                    priority,
-                                    material_json
-                                )
+                            st.warning(f"以下物料尚未添加到物料信息中，将作为自定义物料记录：{', '.join(missing_materials)}")
+                        material_json = None
+                        if material_items:
+                            material_json = json.dumps(material_items, ensure_ascii=False)
+                        cursor.execute(
+                            '''
+                            INSERT INTO production_tasks
+                            (task_name, product_name, production_quantity, responsible_person, start_date, end_date, priority, material_required)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            ''',
+                            (
+                                task_name,
+                                product_name,
+                                quantity,
+                                responsible or None,
+                                start_date.strftime("%Y-%m-%d") if start_date else None,
+                                end_date.strftime("%Y-%m-%d") if end_date else None,
+                                priority,
+                                material_json
                             )
-                            conn.commit()
-                            st.success("紧急订单已添加，当前状态为「待排程」。请前往「智能排程」页面执行排程。")
-                            st.session_state.material_rows = [0]
+                        )
+                        conn.commit()
+                        st.success("紧急订单已添加，当前状态为「待排程」。请前往「智能排程」页面执行排程。")
+                        st.session_state.material_rows = [0]
 
     df_tasks = pd.read_sql("SELECT * FROM production_tasks", conn)
     df_equip = pd.read_sql("SELECT * FROM equipment_info", conn)

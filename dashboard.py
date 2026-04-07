@@ -116,9 +116,11 @@ def create_enhanced_dashboard(conn):
                           color=None if color == '无' else color, title=f"{data_source}柱状图", text_auto=True,
                           labels={x_axis: format_col_name(x_axis), '计数': '计数', y_axis: format_col_name(y_axis), color: format_col_name(color) if color != '无' else None})
         if chart_type == '饼图':
-            if y_axis == '计数':
-                return px.pie(fig_df, values='计数', names=x_axis, title=f"{data_source}饼图")
-            agg = df.groupby(x_axis)[y_axis].sum().reset_index()
+            if y_axis == '计数' or x_axis == y_axis:
+                agg = df[x_axis].value_counts().reset_index()
+                agg.columns = [x_axis, '计数']
+                return px.pie(agg, values='计数', names=x_axis, title=f"{data_source}饼图")
+            agg = df.groupby(x_axis, as_index=False)[y_axis].sum()
             return px.pie(agg, values=y_axis, names=x_axis, title=f"{data_source}饼图")
         if chart_type == '折线图':
             return px.line(fig_df, x=x_axis, y='计数' if y_axis == '计数' else y_axis,
