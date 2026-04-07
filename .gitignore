@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+production_system.db
+.DS_Store
